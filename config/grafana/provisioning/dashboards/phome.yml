@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: phome
+    orgId: 1
+    folder: phome
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 5
+    options:
+      path: /opt/phome/config/grafana/dashboards

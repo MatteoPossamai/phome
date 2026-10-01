@@ -1,0 +1,27 @@
+#!/system/bin/sh
+# Laptop: adb -s DEVICE shell sh < scripts/grant-termux-access
+# Grant the permissions supported by the tested Termux Android 13 installation.
+set -u
+case "$(id -u)" in
+  0|2000) ;;
+  *) echo 'Run through adb shell, not SSH/Termux.' >&2; exit 1 ;;
+esac
+failed=0
+for permission in DUMP READ_LOGS WRITE_SECURE_SETTINGS PACKAGE_USAGE_STATS POST_NOTIFICATIONS \
+  READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE ACCESS_MEDIA_LOCATION \
+  READ_MEDIA_AUDIO READ_MEDIA_VIDEO READ_MEDIA_IMAGES; do
+  if pm grant com.termux "android.permission.$permission"; then
+    echo "Granted $permission"
+  else
+    failed=1
+  fi
+done
+for operation in MANAGE_EXTERNAL_STORAGE GET_USAGE_STATS SYSTEM_ALERT_WINDOW REQUEST_INSTALL_PACKAGES; do
+  if appops set com.termux "$operation" allow; then
+    echo "Allowed $operation"
+  else
+    failed=1
+  fi
+done
+dumpsys deviceidle whitelist +com.termux || failed=1
+exit "$failed"

@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Laptop: stage, validate and deploy configs/scripts; preserve phone data."""
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+
+
+def main():
+    host = sys.argv[1] if len(sys.argv) == 2 else 'phone'
+    if len(sys.argv) > 2 or host.startswith('-') or not host:
+        raise SystemExit('Usage: python scripts/deploy-monitoring [SSH_ALIAS]')
+    root = Path(__file__).resolve().parents[1]
+    stage = subprocess.check_output(['ssh', host,
+        'mkdir -p ~/phome/data; mktemp -d ~/phome/data/deploy.XXXXXXXX'], text=True).strip()
+    if not stage.startswith('/') or '\n' in stage:
+        raise SystemExit('Unexpected remote staging path')
+    quoted = shlex.quote(stage)
+    try:
+        subprocess.run(['scp', '-r', str(root / 'config'), str(root / 'scripts'),
+                        host + ':' + stage + '/'], check=True)
+        command = '''set -eu
+stage=STAGE
+python - "$stage" <<'PY'
+import importlib.util, json, pathlib, py_compile, sys
+root = pathlib.Path(sys.argv[1])
+for path in (root / 'scripts').glob('*.py'):
+    py_compile.compile(str(path), doraise=True)
+for path in (root / 'config').rglob('*.json'):
+    json.loads(path.read_text())
+s = importlib.util.spec_from_file_location('scheduler', root / 'scripts/scheduler.py')
+m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
+m.load_jobs(root / 'config/scheduler.json')
+PY
+for name in run-prometheus run-grafana run-phone-exporter install-monitoring-termux install-monitoring-debian install-sshd-service ensure-wake-lock start-monitoring start-sshd; do
+    bash -n "$stage/scripts/$name"
+done
+proot-distro login --bind "$stage:/opt/phome" debian -- /usr/bin/promtool check config /opt/phome/config/prometheus.yml
+cp -R "$stage/config/." "$HOME/phome/config/"
+cp -R "$stage/scripts/." "$HOME/phome/scripts/"
+sh "$HOME/phome/scripts/install-monitoring-termux" "$(sed -n "s/^PHOME_TAILSCALE_IP='\\([^']*\\)'$/\\1/p" "$HOME/phome/data/grafana.env")"
+sv -w 60 restart "$PREFIX/var/service/phome-monitoring"
+'''.replace('STAGE', quoted)
+        subprocess.run(['ssh', host, command], check=True)
+    finally:
+        subprocess.run(['ssh', host, 'rm -rf -- ' + quoted], check=False)
+    print('Deployed. Allow a minute, then check the Grafana service health panel.')
+
+
+if __name__ == '__main__':
+    main()

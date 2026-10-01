@@ -1,0 +1,23 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Run from Termux. The phome directory is explicitly mapped into Debian.
+set -eu
+PHOME_DIR=${PHOME_DIR:-"$HOME/phome"}
+mkdir -p "$PHOME_DIR/data/prometheus"
+. "$PHOME_DIR/data/grafana.env"
+export PHOME_TAILSCALE_IP PHOME_DIR
+python - <<'PY'
+import ipaddress, json, os
+from pathlib import Path
+ip = str(ipaddress.IPv4Address(os.environ['PHOME_TAILSCALE_IP']))
+path = Path(os.environ['PHOME_DIR']) / 'data/grafana-targets.json'
+temporary = path.with_suffix('.tmp')
+temporary.write_text(json.dumps([{'targets': [ip + ':3000']}]))
+temporary.replace(path)
+PY
+exec proot-distro login --bind "$PHOME_DIR:/opt/phome" debian -- \
+  /usr/bin/env GODEBUG=asyncpreemptoff=1 GOMAXPROCS=2 /usr/bin/prometheus \
+  --config.file=/opt/phome/config/prometheus.yml \
+  --storage.tsdb.path=/opt/phome/data/prometheus \
+  --storage.tsdb.retention.time=7d \
+  --web.listen-address=127.0.0.1:9090 \
+  --web.enable-lifecycle

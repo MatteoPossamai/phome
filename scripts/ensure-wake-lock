@@ -1,0 +1,16 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Termux: restore a wake lock released outside Termux by Android/vendor policy.
+set -eu
+state=$(/system/bin/dumpsys power 2>/dev/null | awk '
+  /^Wake Locks:/ { section=1 }
+  section && /^$/ { exit }
+  section { print }
+')
+if ! printf '%s\n' "$state" | grep -q '^Wake Locks:'; then
+  # On new phones without DUMP permission, use the ordinary acquire request.
+  termux-wake-lock
+elif ! printf '%s\n' "$state" | grep -q 'PARTIAL_WAKE_LOCK.*termux:service-wakelock'; then
+  termux-wake-unlock
+  termux-wake-lock
+  echo 'Restored Termux CPU wake lock'
+fi

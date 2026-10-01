@@ -1,0 +1,9 @@
+#!/data/data/com.termux/files/usr/bin/sh
+termux-wake-lock
+if [ -f "$PREFIX/var/service/sshd/run" ]; then
+  . "$PREFIX/etc/profile.d/start-services.sh"
+  sv up "$PREFIX/var/service/sshd"
+else
+  # Initial setup before termux-services is installed.
+  sshd
+fi

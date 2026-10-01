@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    {
+      "name": "prometheus-reload",
+      "every_seconds": 60,
+      "timeout_seconds": 15,
+      "command": "curl --fail --silent --show-error --max-time 10 -X POST http://127.0.0.1:9090/-/reload"
+    },
+    {
+      "name": "grafana-reload",
+      "every_seconds": 60,
+      "timeout_seconds": 45,
+      "command": "python scripts/reload-grafana.py"
+    },
+    {
+      "name": "sshd-ensure-running",
+      "every_seconds": 30,
+      "timeout_seconds": 10,
+      "command": "sv up \"$PREFIX/var/service/sshd\""
+    },
+    {
+      "name": "wake-lock-check",
+      "every_seconds": 60,
+      "timeout_seconds": 15,
+      "command": "sh scripts/ensure-wake-lock"
+    }
+  ]
+}

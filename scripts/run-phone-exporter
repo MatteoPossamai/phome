@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+exec proot-distro login --bind "$HOME/phome:/opt/phome" debian -- \
+  /usr/bin/python3 /opt/phome/scripts/phone-exporter.py

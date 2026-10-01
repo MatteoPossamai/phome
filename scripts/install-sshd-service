@@ -1,0 +1,33 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Termux: migrate a standalone sshd listener to the existing runit service.
+set -eu
+command -v sshd >/dev/null
+service="$PREFIX/var/service/sshd"
+if [ ! -f "$service/run" ]; then
+  echo 'Install openssh and termux-services before enabling SSH supervision.' >&2
+  exit 1
+fi
+mkdir -p "$HOME/phome/data" "$HOME/.termux/boot"
+if [ -f "$HOME/.termux/boot/start-sshd" ]; then
+  cp "$HOME/.termux/boot/start-sshd" "$HOME/phome/data/start-sshd.bak"
+fi
+cp "$HOME/phome/scripts/start-sshd" "$HOME/.termux/boot/start-sshd"
+chmod 700 "$HOME/.termux/boot/start-sshd"
+# Existing SSH sessions use separate sshd-session processes and remain intact.
+python - <<'PY'
+from pathlib import Path
+import os, signal
+for path in Path('/proc').iterdir():
+    if not path.name.isdigit():
+        continue
+    try:
+        fields = dict(line.split(':', 1) for line in (path / 'status').read_text().splitlines())
+        command = (path / 'cmdline').read_bytes().split(b'\0')[0].decode()
+        if int(fields['PPid']) == 1 and Path(command).name == 'sshd':
+            os.kill(int(path.name), signal.SIGTERM)
+    except (OSError, ValueError, KeyError):
+        pass
+PY
+rm -f "$service/down"
+sh "$HOME/.termux/boot/start-sshd"
+sv -w 10 up "$service"

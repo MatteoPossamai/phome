@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+mkdir -p "$HOME/phome/data/grafana"
+exec proot-distro login --bind "$HOME/phome:/opt/phome" debian -- \
+  /bin/sh -c 'set -a; . /opt/phome/data/grafana.env; export GODEBUG=asyncpreemptoff=1 GOMAXPROCS=2 GOMEMLIMIT=256MiB GOGC=50; exec /usr/share/grafana/bin/grafana server --homepath=/usr/share/grafana --config=/opt/phome/config/grafana.ini'

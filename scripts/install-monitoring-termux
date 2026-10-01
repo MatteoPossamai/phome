@@ -1,0 +1,57 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Run in Termux after copying the repository to ~/phome.
+set -eu
+if [ "$#" -ne 1 ]; then
+  echo 'Usage: sh ~/phome/scripts/install-monitoring-termux PHONE_TAILSCALE_IP' >&2
+  exit 1
+fi
+PHONE_IP=$1
+case "$PHONE_IP" in 100.*) ;; *) echo 'Expected a Tailscale IPv4 address' >&2; exit 1 ;; esac
+command -v python >/dev/null || pkg install -y python
+command -v service-daemon >/dev/null || pkg install -y termux-services
+PHOME_DIR="$HOME/phome"
+export PHOME_DIR
+mkdir -p "$PHOME_DIR/data" "$HOME/.termux/boot"
+if [ ! -f "$PHOME_DIR/data/grafana.env" ]; then
+  python - "$PHONE_IP" <<'PY'
+import ipaddress, os, secrets, sys
+from pathlib import Path
+ip = str(ipaddress.IPv4Address(sys.argv[1]))
+path = Path(os.environ['PHOME_DIR']) / 'data/grafana.env'
+with path.open('x') as output:
+    os.chmod(path, 0o600)
+    output.write(f"PHOME_TAILSCALE_IP='{ip}'\nPHOME_GRAFANA_PASSWORD='{secrets.token_urlsafe(32)}'\n")
+PY
+fi
+# Migrate the initial four-service layout to one lightweight supervisor.
+for name in phone-collector phone-exporter prometheus grafana; do
+  old="$PREFIX/var/service/phome-$name"
+  if [ -d "$old" ]; then
+    sv -w 20 force-stop "$old" || true
+    mkdir -p "$PHOME_DIR/data/retired-services"
+    retired="$PHOME_DIR/data/retired-services/phome-$name"
+    if [ -e "$retired" ]; then
+      echo "Retired service already exists: $retired" >&2
+      exit 1
+    fi
+    mv "$old" "$retired"
+    sv exit "$retired/log" || true
+    sv exit "$retired" || true
+  fi
+done
+service="$PREFIX/var/service/phome-monitoring"
+mkdir -p "$service"
+printf '#!%s/bin/sh\ntermux-wake-lock\nexec python "%s/scripts/monitoring-supervisor.py"\n' "$PREFIX" "$PHOME_DIR" > "$service/run.tmp"
+chmod 700 "$service/run.tmp"
+mv "$service/run.tmp" "$service/run"
+rm -f "$service/down"
+if [ -f "$HOME/.termux/boot/start-monitoring" ]; then
+  cp "$HOME/.termux/boot/start-monitoring" "$HOME/.termux/boot/start-monitoring.bak"
+  # Backups must live outside the boot directory, which executes every file.
+  mv "$HOME/.termux/boot/start-monitoring.bak" "$PHOME_DIR/data/start-monitoring.bak"
+fi
+cp "$PHOME_DIR/scripts/start-monitoring" "$HOME/.termux/boot/start-monitoring"
+chmod 700 "$HOME/.termux/boot/start-monitoring"
+sh "$HOME/.termux/boot/start-monitoring"
+sh "$PHOME_DIR/scripts/install-sshd-service"
+echo 'Monitoring services installed. Run sv status "$PREFIX"/var/service/phome-* to check.'

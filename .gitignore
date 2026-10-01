@@ -1,0 +1,4 @@
+# Runtime databases and logs are local to the device.
+data/
+*.log
+__pycache__/
