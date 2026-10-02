@@ -2,7 +2,7 @@
   "uid": "phome-phone",
   "title": "phome \u2022 Phone health",
   "schemaVersion": 39,
-  "version": 5,
+  "version": 6,
   "editable": false,
   "timezone": "browser",
   "refresh": "5s",
@@ -870,15 +870,9 @@
       },
       "targets": [
         {
-          "expr": "up{job=~\"phone|prometheus|grafana\"}",
+          "expr": "up{job=~\"phone|prometheus|grafana|posserver\"}",
           "refId": "A",
           "legendFormat": "{{job}} up (1 = healthy)",
-          "instant": false
-        },
-        {
-          "expr": "time() - phome_snapshot_timestamp_seconds",
-          "refId": "B",
-          "legendFormat": "Snapshot age (seconds)",
           "instant": false
         }
       ],
@@ -918,7 +912,7 @@
         "colorMode": "value",
         "graphMode": "area"
       },
-      "description": "Prometheus scrape health for the exporter, Prometheus and Grafana; snapshot age measures Android collection freshness."
+      "description": "Prometheus scrape health for the phone exporter, Prometheus, Grafana and posserver."
     },
     {
       "id": 16,

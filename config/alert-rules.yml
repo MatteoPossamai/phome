@@ -9,3 +9,29 @@ groups:
         annotations:
           summary: '{{ $labels.job }} is down'
           description: 'Prometheus cannot scrape {{ $labels.instance }} (job {{ $labels.job }}) for at least one minute.'
+
+      - alert: PosserverNotReady
+        expr: posserver_ready{job="posserver"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'posserver is not ready'
+          description: 'The posserver readiness check has failed for at least two minutes.'
+
+      - alert: PosserverDropboxBackupFailure
+        expr: (increase(posserver_backup_attempts_total{job="posserver",provider="dropbox",result="failure"}[15m]) > 0) and on(provider) (posserver_backup_configured{job="posserver",provider="dropbox"} == 1)
+        labels:
+          severity: warning
+        annotations:
+          summary: 'posserver Dropbox backup failed'
+          description: 'A Dropbox backup attempt failed in the last 15 minutes.'
+
+      - alert: PosserverBackupQueueStuck
+        expr: (posserver_backup_pending_revisions{job="posserver"} > 0) and on() (posserver_backup_configured{job="posserver",provider="dropbox"} == 1)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'posserver backup revisions are still pending'
+          description: 'Dropbox is configured but posserver has pending backup revisions for at least 15 minutes.'

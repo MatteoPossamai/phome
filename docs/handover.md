@@ -535,3 +535,61 @@ The repository now has baseline commit `e00f524` (First commit and first artifac
 This investigation changes documentation and `ensure-wake-lock`; no new commit
 was created. `CLAUDE.md` remains a relative symlink to `AGENTS.md`. Do not duplicate
 the instruction file, discard files or publish/commit without considering scope.
+
+
+## posserver app deployment — 2026-10-02
+
+The user requested SSH/native-build/install/start scripts for posserver. Its neighboring
+repository now provides `scripts/phone` for deploy, start, stop, restart, status, logs,
+rollback and optional encrypted-config installation. The native aarch64 release built on
+this phone and is installed under `$PREFIX/apps/posserver` with versioned releases/current
+symlink and build cache. Native Termux runit supervises `posserver`; bind is private Tailscale
+`100.108.243.40:8080`. Runtime DB/config/snapshots/log are under `$PREFIX/data/posserver`
+(directory 700; DB/config 600). No Dropbox, Monzo or Drive credentials/binding were provisioned.
+The CSV was imported afterward (documented in posserver's handover). No public Funnel route
+was added for posserver.
+
+Verified private UI/API/health/metrics reachability, stop/start/restart, repeat deployment,
+binary rollback and reverse rollback. Native process CPU/RSS metrics are available. Existing
+phome-monitoring and sshd PIDs remained unchanged during deployment. Android vendor-kill, boot and
+overnight reliability remain unverified; runit cannot prevent Termux from being killed by Android.
+See posserver's `docs/operations.md` and `docs/implementation.md` for app setup and limitations.
+
+
+## posserver monitoring — 2026-10-02
+
+Added the posserver scrape job to the existing Prometheus config, targeting private Tailscale
+`100.108.243.40:8080` every 15 seconds, and provisioned
+`config/grafana/dashboards/posserver.json` from the posserver dashboard definition. Added alert
+rules for target down (existing), app readiness, Dropbox upload failure, and a stalled pending
+Dropbox queue (guarded until Dropbox is configured). Prometheus config and all four rules passed
+`promtool`; its HTTP reload endpoint accepted the update. The target API reports all five scrape
+jobs up, and `up{job="posserver"}` returned 1. Prometheus loaded all four alert rules as healthy
+and inactive. Grafana's anonymous viewer API returned the `posserver application health` dashboard
+with 16 panels. Alerts use the existing Telegram Alertmanager integration.
+
+The monitoring stack already runs on this phone, so no second stack or supervisor restart was
+needed. Grafana and Prometheus share the phone's availability and cannot report a complete
+phone/Termux outage.
+
+
+## posserver public Funnel — 2026-10-02
+
+At the user's explicit request, added a persistent Tailscale Funnel route on public HTTPS port
+443 to `http://100.108.243.40:8080`, using the existing `phome-public` Funnel node and supervisor.
+The Grafana Funnel on port 8443 remains configured. Public URL:
+`https://phome-public.tail1b8023.ts.net/`. `funnel status` reports both routes active. External
+HTTPS `/healthz` returned `{"schema_version":1,"status":"ok"}` and the site root served the
+posserver page. The public Grafana API on port 8443 loaded the posserver dashboard with 16 panels.
+No app authentication was added; the user explicitly chose public family access. Funnel daemon
+and phone uptime remain subject to the existing Android background/reboot reliability limits.
+
+
+## Service health dashboard panel — 2026-10-02
+
+Updated the existing `Service and collection health` panel in `config/grafana/dashboards/phone.json`:
+removed the `phome_snapshot_timestamp_seconds` age series and expanded the `up` query to include
+the `posserver` job. Deployed the dashboard JSON atomically to the existing Grafana provisioning
+directory. The public Grafana API now returns the updated panel query
+`up{job=~"phone|prometheus|grafana|posserver"}` and no snapshot-age query. The posserver target
+is currently up in Prometheus.
