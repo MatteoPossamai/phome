@@ -245,6 +245,8 @@ bring it back. The scheduler cannot recover a stopped Termux app or failed VPN.
 `wake-lock-check` also runs every 60 seconds. With DUMP permission it checks
 the current PowerManager wake-lock list and releases/reacquires Termux's lock
 if absent. Without that permission it sends the standard acquisition request.
+After reacquiring, it waits three seconds and checks again; a lock released
+immediately by Android produces a failed job instead of a misleading success.
 This is a recovery safeguard, not a bypass of Android/vendor power policy.
 
 Grafana also checks dashboard JSON every five seconds. These reloads apply files
@@ -325,6 +327,93 @@ wake lock despite prior acquisition requests. Explicit release/reacquire restore
 the live lock, and the scheduled check above was added. Sleep can delay timers
 and requests; the precise vendor release cause remains unconfirmed.
 
+## Sparse-data investigation — 2026-10-01
+
+After several hours with the screen off, raw Prometheus samples confirmed real
+collection gaps, rather than a Grafana rendering issue. A six-hour window had
+only 169 scrapes per target instead of about 4,320. Prometheus's own `up` had no
+failed scrapes but gaps approaching ten minutes; successful phone snapshots had
+a gap of about two hours. There were 48 failed phone scrapes, consistent with
+the exporter's stale-snapshot rejection. The supervisor PID was unchanged since
+the earlier session. This does not establish that every child avoided restarts.
+
+Android reported the phone unplugged, Dozing, Battery Saver enabled (`low_power=1`)
+and no Termux partial wake lock. Termux, API, Boot and Tailscale were already in
+the Doze whitelist. PowerManager's history repeatedly showed Termux acquiring a
+lock and losing it about two seconds later. The existing minute watchdog logged
+success on acquisition alone and could not run reliably while the CPU slept.
+
+Recovery on this phone: disable Battery Saver, briefly wake the screen, renew
+Termux's lock, then turn the screen off. Turning off Battery Saver alone did not
+clear the existing restriction. Temporarily disabling Doze also failed; normal
+deep/light Doze was restored. The exact vendor policy responsible is unconfirmed.
+No monitoring services were restarted. The guard now verifies a renewed lock
+after three seconds and reports failure if it disappears.
+
+Verification after recovery: 64 samples per target across 315 seconds, no failed
+scrapes and maximum spacing 5.009 seconds. Phone snapshot samples were continuous
+too. The screen stayed off, ADB was disconnected for the final portion, and the
+same supervisor PID remained running. The Termux lock was still held after more
+than five minutes. Shell syntax, four mocked guard behaviours (already held,
+renewal surviving, renewal rejected, no DUMP), documentation file links and all
+11 existing tests passed. This is a short recovery check, not overnight proof.
+
+**On Android:** keep Battery Saver off for server operation. Check automatic
+Battery Saver settings too. For a missing lock, wake the phone once, then run
+`termux-wake-unlock; termux-wake-lock` in Termux and turn the screen off.
+
+**On the laptop, with an already paired ADB connection:**
+
+```sh
+adb -s PHONE_ADB_ADDRESS shell cmd power set-mode 0
+adb -s PHONE_ADB_ADDRESS shell input keyevent KEYCODE_WAKEUP
+ssh phone 'termux-wake-unlock; termux-wake-lock'
+adb -s PHONE_ADB_ADDRESS shell input keyevent KEYCODE_SLEEP
+ssh phone 'dumpsys power | sed -n "/^Wake Locks:/,/^$/p"'
+```
+
+`PHONE_ADB_ADDRESS` is the current Wireless debugging connection address/port.
+The last command requires the documented DUMP grant. Check again after a few
+minutes: `PARTIAL_WAKE_LOCK 'termux:service-wakelock'` must still appear. Turning
+Battery Saver back on is possible in Android Settings, or with `cmd power
+set-mode 1`; doing so may reproduce the gaps. Missed historical data cannot be
+recovered. Overnight and charge-cycle reliability still need verification.
+
+## Recurring gaps and premature charging — 2026-10-02
+
+The next morning, raw samples and scheduler logs confirmed recurring real gaps.
+Prometheus self-scrapes stayed successful when they ran but were separated by
+minutes; Android battery snapshots also stopped. Battery Saver was off and the
+Termux/Termux:API Doze exemptions and foreground service were present. PowerManager
+history showed repeated Termux lock releases; Oplus `WakeLockCheck` log entries
+coincided with releases at 05:41:44 and 06:14:13. This implicates vendor power
+management but does not establish the exact setting or release rule.
+
+The charging controller's stale-snapshot safety fallback repeatedly turned the
+plug ON, including at 78–79%, and its former reliance on actual plug state held
+it ON until 80%. This explains the reported small charging cycles. It was not
+the intended normal 40–80% cycle. The correction uses a direct bounded battery
+request before the safety fallback and stores cycle memory separately; see
+[Charging](charging.md). Complete battery API failure still permits safety ON.
+
+The user reports checking/enabling Termux background activity and auto-launch,
+turning off sleep standby optimisation and locking Termux in Recents. The guard
+now proactively renews a lock aged at least four minutes, then verifies it after
+three seconds. This is an experimental workaround for observed long-lock releases;
+it cannot guarantee recovery once Android suspends the scheduler. No apps were
+disabled, no memory limits changed, and ordinary Doze remains enabled.
+
+Historical missing samples cannot be recreated. Keep gaps visible and check new
+data after deployment; connecting lines across missing samples would hide failures.
+Long unattended validation remains necessary even if a short screen-off test passes.
+
+The attempted longer screen-off validation was interrupted at **06:52:29** by a
+confirmed GuardElf/Athena kill of Termux and all children. Android exit information
+recorded OTHER KILLS BY SYSTEM, and logcat explicitly named GuardElf. No OOM or
+application crash was established. At recovery, Termux and Boot Doze exemptions
+were missing while API remained; restored exemptions. The exact vendor restriction
+is unresolved, so proactive lock renewal is not a proven fix for chart gaps.
+
 ## References
 
 - [Prometheus configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)
@@ -332,3 +421,5 @@ and requests; the precise vendor release cause remains unconfirmed.
 - [Grafana Debian installation](https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/)
 - [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/)
 - [Termux services](https://github.com/termux/termux-services)
+- [Android Doze restrictions and exemptions](https://developer.android.com/training/monitoring-device-state/doze-standby)
+- [Termux wake-lock implementation](https://github.com/termux/termux-app/blob/master/app/src/main/java/com/termux/app/TermuxService.java)

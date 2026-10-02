@@ -27,7 +27,7 @@ signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 while True:
     time.sleep(1)
 ''')
-            for name in ('prometheus', 'grafana', 'phone-exporter'):
+            for name in ('prometheus', 'grafana', 'phone-exporter', 'alertmanager'):
                 (scripts / ('run-' + name)).write_text(f'exec "{sys.executable}" "{helper}" "{root / (name + ".pid")}"\n')
             bootstrap = ('import importlib.util, pathlib; '
                          f's=importlib.util.spec_from_file_location("supervisor", {str(source)!r}); '
@@ -50,7 +50,7 @@ while True:
                 self.fail('Service did not start/restart: ' + name)
 
             try:
-                for name in ('prometheus', 'grafana', 'phone-exporter'):
+                for name in ('prometheus', 'grafana', 'phone-exporter', 'alertmanager'):
                     wait_pid(name)
                 first = wait_pid('grafana')
                 os.kill(first, signal.SIGTERM)

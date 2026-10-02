@@ -1,0 +1,8 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Managed by the existing monitoring supervisor; no Android VPN replacement.
+set -eu
+mkdir -p "$HOME/phome/data/funnel"
+chmod 700 "$HOME/phome/data/funnel"
+# Keep the real app UID: socket peer credentials are not faked by PRoot.
+exec proot-distro login --user "$(id -u):$(id -g)" --bind "$HOME/phome:/opt/phome" debian -- \
+  /bin/sh -c 'export GODEBUG=asyncpreemptoff=1; exec /opt/phome/data/funnel-bin/tailscaled --tun=userspace-networking --statedir=/opt/phome/data/funnel --state=/opt/phome/data/funnel/tailscaled.state --socket=/opt/phome/data/funnel/tailscaled.sock --port=0'

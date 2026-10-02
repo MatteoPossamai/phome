@@ -5,6 +5,10 @@ SSH keys and automatic startup after reboot. No Android root access is required.
 
 ## 1. Install Termux and start SSH
 
+**On Android:** turn Battery Saver off, including automatic activation. A server
+needs to keep running with the screen off. Vendor power restrictions can still
+interfere; see [the screen-off reliability check](monitoring.md#sparse-data-investigation--2026-10-01).
+
 Connect both devices to the same Wi-Fi. Install Termux and Termux:Boot from the
 same source (for example F-Droid), then open both once. Their signatures must
 match; do not mix installation sources. Back up an existing Termux installation

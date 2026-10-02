@@ -1,0 +1,9 @@
+{{ define "phome.telegram" -}}
+{{ if eq .Status "firing" }}🔴 <b>Service down</b>{{ else }}🟢 <b>Service recovered</b>{{ end }}
+{{ range .Alerts }}
+<b>{{ if eq .Labels.job "phone" }}Android metrics{{ else if eq .Labels.job "grafana" }}Grafana{{ else if eq .Labels.job "prometheus" }}Prometheus{{ else if eq .Labels.job "alertmanager" }}Alertmanager{{ else }}{{ .Labels.job | html }}{{ end }}</b>
+<code>{{ .Labels.instance | html }}</code>
+{{ if eq .Status "firing" }}Health checks have failed for at least one minute.{{ else }}Health checks are passing again.{{ end }}
+{{ end }}
+<i>phome · Prometheus monitoring</i>
+{{- end }}

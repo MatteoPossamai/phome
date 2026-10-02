@@ -92,6 +92,17 @@ Activity process and process-statistics reports were verified over SSH. Despite
 additional user-management permission checks which Termux cannot pass; use
 `adb shell settings ...` for settings administration.
 
+2026-10-02: realme GuardElf/Athena was confirmed killing Termux despite reported
+background/auto-launch permissions. Its separate **Settings → Battery → More
+battery settings (or Advanced settings) → Optimize battery use** page offers
+**Don't optimize** per app. Inspect Termux, Termux:API, Termux:Boot and Tailscale
+there as well; background/auto-launch is not enough evidence of this policy.
+The vendor battery provider cannot be read by ordinary ADB shell because it
+requires `oplus.permission.OPLUS_COMPONENT_SAFE`. An unlocked UI is needed to
+verify the actual selection on this unit. Do not claim it was verified or changed
+from the ordinary Doze whitelist alone. See [the handover](handover.md) for
+recovery state and still-incomplete unattended verification.
+
 ## Applied memory cleanup
 
 2026-10-01: optional Google Search/Assistant and realme Search were disabled

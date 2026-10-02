@@ -32,10 +32,11 @@ s = importlib.util.spec_from_file_location('scheduler', root / 'scripts/schedule
 m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
 m.load_jobs(root / 'config/scheduler.json')
 PY
-for name in run-prometheus run-grafana run-phone-exporter install-monitoring-termux install-monitoring-debian install-sshd-service ensure-wake-lock start-monitoring start-sshd; do
+for name in run-prometheus run-grafana run-phone-exporter run-alertmanager run-funnel funnel-cli install-monitoring-termux install-monitoring-debian install-sshd-service ensure-wake-lock start-monitoring start-sshd; do
     bash -n "$stage/scripts/$name"
 done
 proot-distro login --bind "$stage:/opt/phome" debian -- /usr/bin/promtool check config /opt/phome/config/prometheus.yml
+proot-distro login --bind "$stage:/opt/phome" debian -- /usr/bin/amtool check-config /opt/phome/config/alertmanager.json
 cp -R "$stage/config/." "$HOME/phome/config/"
 cp -R "$stage/scripts/." "$HOME/phome/scripts/"
 sh "$HOME/phome/scripts/install-monitoring-termux" "$(sed -n "s/^PHOME_TAILSCALE_IP='\\([^']*\\)'$/\\1/p" "$HOME/phome/data/grafana.env")"

@@ -1,0 +1,33 @@
+rule_files:
+  - ../config/alert-rules.yml
+evaluation_interval: 5s
+tests:
+  - interval: 5s
+    input_series:
+      - series: 'up{job="demo",instance="127.0.0.1:9999"}'
+        values: '1x6 0x24 1x12'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TargetDown
+        exp_alerts: []
+      - eval_time: 1m40s
+        alertname: TargetDown
+        exp_alerts:
+          - exp_labels:
+              job: demo
+              instance: 127.0.0.1:9999
+              severity: critical
+            exp_annotations:
+              summary: demo is down
+              description: 'Prometheus cannot scrape 127.0.0.1:9999 (job demo) for at least one minute.'
+      - eval_time: 3m
+        alertname: TargetDown
+        exp_alerts: []
+  - interval: 5s
+    input_series:
+      - series: 'up{job="brief",instance="127.0.0.1:9998"}'
+        values: '1 0 0 1x36'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TargetDown
+        exp_alerts: []

@@ -12,6 +12,34 @@ import time
 ROOT = Path(os.environ.get('PHOME_DIR', str(Path.home() / 'phome')))
 
 
+def charging_metrics(root=ROOT, now=None):
+    """Expose controller health; old successful checks must not look healthy."""
+    now = time.time() if now is None else now
+    try:
+        device = json.loads((root / 'data/charging-device.json').read_text())
+        enabled = device.get('enabled') is True
+    except (OSError, ValueError, AttributeError):
+        enabled = False
+    values = {'charging_control_enabled': int(enabled)}
+    if not enabled:
+        return values
+    values['charging_control_ok'] = 0
+    try:
+        status = json.loads((root / 'data/charging-status.json').read_text())
+        timestamp = status['checked_at']
+        if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)) or not math.isfinite(timestamp):
+            return values
+        values['charging_control_timestamp_seconds'] = timestamp
+        fresh = 0 <= now - timestamp <= 90
+        # Manual status reads do not replace evidence of the automatic controller.
+        values['charging_control_ok'] = int(fresh and status.get('ok') is True and status.get('action') == 'auto')
+        if fresh and isinstance(status.get('plug_on'), bool):
+            values['charging_plug_on'] = int(status['plug_on'])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    return values
+
+
 def process_memory(proc=Path('/proc')):
     """Resident memory of monitoring processes, measured outside PRoot."""
     groups = {}
@@ -60,6 +88,8 @@ def collect():
     def source(name, ok):
         add('source_available', int(ok), 'Whether an Android metric source is readable.', {'source': name})
 
+    for name, value in charging_metrics().items():
+        add(name, value, 'Smart-plug charging controller ' + name.removeprefix('charging_').replace('_', ' ') + '.')
     add('snapshot_timestamp_seconds', time.time(), 'Time this host snapshot was collected.')
     add('uptime_seconds', time.clock_gettime(time.CLOCK_BOOTTIME), 'Android elapsed time since boot including sleep.')
     add('cpu_logical_count', os.cpu_count() or 1, 'Number of logical CPUs.')

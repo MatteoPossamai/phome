@@ -1,6 +1,12 @@
 {
   "jobs": [
     {
+      "name": "charging-control",
+      "every_seconds": 30,
+      "timeout_seconds": 25,
+      "command": "python scripts/control-charging.py"
+    },
+    {
       "name": "prometheus-reload",
       "every_seconds": 60,
       "timeout_seconds": 15,

@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Phone/Termux: an independent Tailscale node used for public HTTPS hosting.
+set -eu
+exec proot-distro login --user "$(id -u):$(id -g)" --bind "$HOME/phome:/opt/phome" debian -- \
+  /opt/phome/data/funnel-bin/tailscale \
+  --socket=/opt/phome/data/funnel/tailscaled.sock "$@"

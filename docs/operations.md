@@ -13,7 +13,7 @@ cron or Ansible installation is needed for this setup.
 | ADB pairing and permission grants | Laptop communicating with Android | Initial administrative setup; reconnect for ADB-only tasks |
 | `python ~/phome/scripts/memory-report.py` | Phone/Termux, optionally through SSH | Optional diagnostic |
 | `python -m unittest discover -s tests -v` | Laptop, repository root | Verify relevant code changes |
-| Supervisor, collector, exporter, Prometheus, Grafana, scheduler | Phone | Automatically, continuously |
+| Supervisor, collector, exporter, Prometheus, Grafana, Alertmanager, scheduler | Phone | Automatically, continuously |
 
 **The deployment script is the only routine repo command needed to ship changes.**
 Initial setup and optional diagnostics have separate commands; the laptop-side
@@ -32,8 +32,14 @@ flowchart TD
     Supervisor --> Exporter["Debian exporter"]
     Supervisor --> Prometheus["Debian Prometheus: scrape every 5 seconds"]
     Supervisor --> Grafana["Debian Grafana"]
+    Supervisor --> Alertmanager["Debian Alertmanager"]
+    Supervisor --> Funnel["Optional userspace Tailscale Funnel"]
+    Prometheus -->|"outage rules"| Alertmanager
+    Alertmanager -->|"outage and recovery notifications"| Telegram["Telegram bot"]
+    Funnel -->|"public HTTPS on 8443"| Grafana
     Supervisor --> Scheduler["Interval command scheduler"]
     Scheduler -->|"ensure up every 30 seconds"| SSH
+    Scheduler -->|"battery check every 30 seconds"| Charger["WiZ charger socket: 40–80%"]
     Scheduler -->|"reload every 60 seconds"| Prometheus
     Scheduler -->|"check changes every 60 seconds; reload if changed"| Grafana
     Collector --> Snapshot["One overwritten JSON snapshot"]
@@ -57,10 +63,12 @@ Current realme example (substitute a replacement phone's IP):
 | SSH | `100.108.243.40:8022` | Laptop alias `ssh phone`, dedicated key |
 | Grafana | [Phone dashboard](http://100.108.243.40:3000/d/phome-phone) | Tailnet, anonymous Viewer; admin required to edit |
 | Prometheus | `127.0.0.1:9090` on phone | Localhost; seven-day retention |
+| Alertmanager | `127.0.0.1:9093` on phone | Localhost; [Telegram alerting](alerting.md) |
+| Public Grafana | [Public dashboard](https://phome-public.tail1b8023.ts.net:8443/d/phome-phone) | Funnel, anonymous Viewer |
 | Phone exporter | `127.0.0.1:9101/metrics` on phone | Localhost |
 
 Metrics include battery, temperature/voltage, storage, RAM, uptime, CPU frequency,
-service scrape health and monitoring process memory. RAM available/used are
+service scrape health, monitoring process memory and [charging controller status](charging.md). RAM available/used are
 top-row stats as well as graphs. CPU utilization and network throughput remain
 blocked by Android; their empty panels were removed. Administrative app grants
 do not change those filesystem restrictions.
@@ -92,6 +100,9 @@ ssh phone 'sv status "$PREFIX/var/service/sshd" "$PREFIX/var/service/phome-monit
 Logs: `~/phome/data/logs/SERVICE/current` for monitoring/scheduler;
 `$PREFIX/var/log/sv/sshd/current` for SSH. Secrets: `~/phome/data/grafana.env`,
 mode 600. Do not copy that file or private keys into the repository.
+Telegram token/chat files are under private `data/telegram/`; see
+[Alerting](alerting.md). Funnel keys and certificates are under private
+`data/funnel/`; see [Public HTTPS](funnel.md).
 
 ## Completed and remaining verification
 
@@ -118,6 +129,9 @@ Other memory cleanup remains paused. Deployment restarts monitoring deliberately
 and briefly makes Grafana unavailable; that is not a crash-recovery event.
 The scheduler now also checks the CPU wake lock every minute and restores it
 when PowerManager reports it absent. Vendor power restrictions can still interfere.
+The later sparse-data incident was traced to suspended collection with a missing
+wake lock. Battery Saver is now off; waking the screen and renewing the lock
+restored five-second sampling. See [recovery and evidence](monitoring.md#sparse-data-investigation--2026-10-01).
 
-Next work: smart-plug battery charging (confirm plug model/local control first),
-then a framework for hosting apps on the phone. Neither is implemented yet.
+WiZ battery charging is installed; see [Charging](charging.md) for thresholds,
+verification and failure recovery. Next feature: a framework for hosting apps.

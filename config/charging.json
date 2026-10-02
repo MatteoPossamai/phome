@@ -1,0 +1,5 @@
+{
+  "low_percent": 40,
+  "high_percent": 80,
+  "max_snapshot_age_seconds": 60
+}

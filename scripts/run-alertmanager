@@ -1,0 +1,9 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+python "$HOME/phome/scripts/configure-telegram.py" --render
+exec proot-distro login --bind "$HOME/phome:/opt/phome" debian -- \
+  /usr/bin/env GODEBUG=asyncpreemptoff=1 GOMAXPROCS=2 /usr/bin/prometheus-alertmanager \
+  --config.file=/opt/phome/data/alertmanager/config.json \
+  --storage.path=/opt/phome/data/alertmanager/storage \
+  --web.listen-address=127.0.0.1:9093 \
+  --cluster.listen-address=

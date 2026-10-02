@@ -18,6 +18,9 @@ current installed state, Grafana incident/mitigation, tested results and next st
 - [Setup guide](docs/setup.md): reproducible installation and verification.
 - [SSH boot script](scripts/start-sshd): automatic startup through Termux:Boot.
 - [Monitoring](docs/monitoring.md): five-second phone metrics, Grafana, scheduled commands, deployment and seven-day retention.
+- [Charging](docs/charging.md): phone-controlled WiZ charger, with 40–80% thresholds and recovery limits.
+- [Public HTTPS](docs/funnel.md): phone-hosted Tailscale Funnel setup and current verification status.
+- [Telegram alerts](docs/alerting.md): Prometheus outage rules, Alertmanager and private bot setup.
 - [Repository instructions](AGENTS.md): scope and conventions for future work.
 - [Android access](docs/android-access.md): ADB pairing, Termux permissions and system memory diagnostics.
 
@@ -26,5 +29,5 @@ by runit; the phone scheduler also ensures it is up every 30 seconds. Grafana
 includes top-row RAM stats and memory use by monitoring service. `CLAUDE.md`
 links to `AGENTS.md` so repository instructions have one source.
 
-Further memory cleanup is paused. Next: smart-plug charging, then app hosting;
-those features are not implemented yet.
+Further memory cleanup is paused. WiZ charging control is implemented; app hosting
+is next. See the handover for installed state and remaining charging verification.

@@ -3,7 +3,7 @@
 set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl python3 prometheus
+apt-get install -y --no-install-recommends ca-certificates curl python3 prometheus prometheus-alertmanager
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://apt.grafana.com/gpg-full.key -o /etc/apt/keyrings/grafana.asc
 chmod 644 /etc/apt/keyrings/grafana.asc

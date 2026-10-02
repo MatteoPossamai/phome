@@ -1,16 +1,42 @@
 #!/data/data/com.termux/files/usr/bin/sh
 # Termux: restore a wake lock released outside Termux by Android/vendor policy.
 set -eu
-state=$(/system/bin/dumpsys power 2>/dev/null | awk '
+read_locks() {
+  /system/bin/dumpsys power 2>/dev/null | awk '
   /^Wake Locks:/ { section=1 }
   section && /^$/ { exit }
   section { print }
-')
+'
+}
+state=$(read_locks)
 if ! printf '%s\n' "$state" | grep -q '^Wake Locks:'; then
   # On new phones without DUMP permission, use the ordinary acquire request.
   termux-wake-lock
-elif ! printf '%s\n' "$state" | grep -q 'PARTIAL_WAKE_LOCK.*termux:service-wakelock'; then
+else
+  held=$(printf '%s\n' "$state" | grep 'PARTIAL_WAKE_LOCK.*termux:service-wakelock' || true)
+  reason=missing
+  if [ -n "$held" ]; then
+    # This realme releases long-held locks despite Doze exemption. Renew after
+    # four minutes, before observed six-to-ten-minute releases. This is a
+    # workaround to verify over longer runs, not a vendor-policy fix.
+    if ! printf '%s\n' "$held" | grep -Eq 'ACQ=-([0-9]+[dh]|([4-9]|[1-9][0-9]+)m)'; then
+      exit 0
+    fi
+    reason=aged
+  fi
   termux-wake-unlock
   termux-wake-lock
-  echo 'Restored Termux CPU wake lock'
+  # This realme has released fresh locks after two seconds. A successful
+  # acquisition command alone is not proof that Android keeps the lock.
+  sleep 3
+  state=$(read_locks)
+  if ! printf '%s\n' "$state" | grep -q 'PARTIAL_WAKE_LOCK.*termux:service-wakelock'; then
+    echo 'Termux CPU wake lock did not survive: check Android battery restrictions' >&2
+    exit 1
+  fi
+  if [ "$reason" = aged ]; then
+    echo 'Renewed ageing Termux CPU wake lock'
+  else
+    echo 'Restored Termux CPU wake lock'
+  fi
 fi

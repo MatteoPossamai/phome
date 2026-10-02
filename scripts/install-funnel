@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Phone/Termux: install verified official ARM64 binaries; preserve node state."""
+import hashlib
+import os
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+import urllib.request
+
+VERSION = '1.102.4'
+ROOT = Path.home() / 'phome'
+
+
+def main():
+    if os.uname().machine != 'aarch64':
+        raise SystemExit('This installer currently supports ARM64 phones only')
+    # PRoot imports Android users with /sbin/nologin. This node must run with
+    # the real Termux UID so Unix socket peer credentials match daemon identity.
+    subprocess.run(['proot-distro', 'login', 'debian', '--', '/bin/sh', '-c',
+                    'name=$(getent passwd "$1" | cut -d: -f1); '
+                    '[ -n "$name" ] && usermod --shell /bin/sh "$name"',
+                    'sh', str(os.getuid())], check=True)
+    directory = ROOT / 'data/funnel-bin'
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    name = f'tailscale_{VERSION}_arm64'
+    url = f'https://pkgs.tailscale.com/stable/{name}.tgz'
+    with tempfile.TemporaryDirectory(dir=directory) as scratch:
+        package = Path(scratch) / 'package.tgz'
+        urllib.request.urlretrieve(url, package)
+        checksum = urllib.request.urlopen(url + '.sha256', timeout=30).read().decode().split()[0]
+        if hashlib.sha256(package.read_bytes()).hexdigest() != checksum:
+            raise SystemExit('Tailscale download checksum mismatch')
+        with tarfile.open(package) as archive:
+            for binary in ('tailscale', 'tailscaled'):
+                source = archive.extractfile(f'{name}/{binary}')
+                target = Path(scratch) / binary
+                with source, target.open('wb') as output:
+                    output.write(source.read())
+                target.chmod(0o700)
+                target.replace(directory / binary)
+    subprocess.run(['sh', str(ROOT / 'scripts/funnel-cli'), 'version'], check=True)
+    state = ROOT / 'data/funnel'
+    state.mkdir(exist_ok=True, mode=0o700)
+    (state / 'enabled').touch(mode=0o600)
+    print('Installed. Restart monitoring once, then run: sh ~/phome/scripts/funnel-cli up --hostname=phome-public --accept-dns=false')
+
+
+if __name__ == '__main__':
+    main()

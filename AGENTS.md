@@ -38,5 +38,6 @@ phone-hosted services and supporting tools are added.
 - Memory cleanup is paused. Do not disable more Android apps or tune memory
   limits unless requested. The optional search apps already disabled and their
   reversal commands are recorded in `docs/android-access.md`.
-- Next planned work is smart-plug charging, then an app hosting framework. The
-  plug is available, but its exact model/control interface still needs checking.
+- WiZ charging control is installed; keep its verification and recovery limits
+  current in `docs/charging.md` and the handover. Next planned work is an app
+  hosting framework.

@@ -5,6 +5,7 @@ import faulthandler
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+import re
 from pathlib import Path
 import signal
 import subprocess
@@ -14,6 +15,11 @@ ROOT = Path.home() / 'phome'
 STOP = threading.Event()
 LOCK = threading.Lock()
 PROCESSES = {}
+
+
+def redact_alertmanager(line):
+    # Bot API URLs contain the token immediately after the word "bot".
+    return re.sub(r'\d{5,}:[A-Za-z0-9_-]{20,}', '[REDACTED]', line)
 
 
 def logger(name):
@@ -42,6 +48,8 @@ def service(name):
             log.info('Started PID %s', process.pid)
             with process.stdout:
                 for line in process.stdout:
+                    if name == 'alertmanager':
+                        line = redact_alertmanager(line)
                     log.info('%s', line.rstrip())
             code = process.wait()
             log.warning('Exited with code %s', code)
@@ -78,8 +86,11 @@ def main():
     spec.loader.exec_module(scheduler)
     threads = [threading.Thread(target=collect, daemon=True),
                threading.Thread(target=scheduler.main, args=(ROOT, STOP, logger('scheduler')), daemon=True)]
+    names = ['phone-exporter', 'prometheus', 'grafana', 'alertmanager']
+    if (ROOT / 'data/funnel/enabled').is_file():
+        names.append('funnel')
     threads += [threading.Thread(target=service, args=(name,), daemon=True)
-                for name in ('phone-exporter', 'prometheus', 'grafana')]
+                for name in names]
     for thread in threads:
         thread.start()
     STOP.wait()
