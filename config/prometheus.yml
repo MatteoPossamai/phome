@@ -1,4 +1,6 @@
 # Scraping settings; retention and storage are set by scripts/run-prometheus.
+# On a replacement phone, update the posserver target to its Tailscale IP.
+# Other device addresses are generated from private data/grafana.env.
 global:
   scrape_interval: 5s
   scrape_timeout: 4s
@@ -34,4 +36,4 @@ scrape_configs:
     scrape_timeout: 3s
     metrics_path: /metrics
     static_configs:
-      - targets: ['100.108.243.40:8080']
+      - targets: ['100.108.243.40:8080'] # Installed phone example; replace as needed.

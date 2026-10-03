@@ -41,22 +41,28 @@ Dependencies are the existing Python, Termux:API battery collector and Wi-Fi LAN
    Android external-power status together. Grafana shows controller health,
    last verified socket state and check age, alongside existing battery charts.
 
-Actual installed example, 2026-10-01: app name `phome-1`, MAC `6c2990aed172`,
-IP `192.168.0.202`, broadcast `192.168.0.255`, firmware `1.33.1`,
-module `ESP10_SOCKET_06`. The retail model number was not established.
+Keep device names, MAC/IP addresses and LAN broadcast addresses private in the
+phone's ignored `data/` directory. The installed socket identity is recorded in
+the private operational handover, not as a reusable configuration example.
 
 ## Behaviour and recovery
 
-- Thresholds and maximum battery-snapshot age live in `config/charging.json`.
-  They are read on every run. Defaults are 40%, 80% and 60 seconds.
+- The editable policy is `config/charging.json`: `low_percent` turns charging
+  on at or below that level; `high_percent` turns it off at or above that level.
+  Between them, the previous cycle state is held. `max_snapshot_age_seconds`
+  controls when a cached battery reading is treated as stale and the direct
+  Termux battery API is tried. Defaults are 40%, 80% and 60 seconds. This does
+  not change the 30-second scheduler interval in `config/scheduler.json`.
 - Every check reads the actual plug state. Each switch requires an acknowledgement
   and independent state readback. Failed commands return nonzero, appear in the
   scheduler log/status file, and are retried at the next interval.
 - A stale, corrupt or unavailable snapshot triggers a direct `termux-battery-status`
   request with an eight-second timeout. If that also fails, request **power on**,
-  giving availability priority over the upper threshold. This cannot work if the socket
-  is unreachable. Invalid controller/device configuration causes an error rather
-  than sending commands to an uncertain target.
+  giving availability priority over the upper threshold. The command then
+  reports failure even if switching on succeeded, because battery state remains
+  unknown. This cannot work if the socket is unreachable. Invalid
+  controller/device configuration causes an error rather than sending commands
+  to an uncertain target.
 - The configured MAC is checked before switching. If the cached address fails or
   belongs to a different device, broadcast discovery searches only for that MAC
   and a socket module. A recovered IP is saved atomically in the device file.

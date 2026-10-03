@@ -107,8 +107,9 @@ Telegram token/chat files are under private `data/telegram/`; see
 ## Completed and remaining verification
 
 - Verified: SSH keys and Tailscale; initial manual reboot/first unlock recovery.
-- Verified: five-second collection/scraping, Grafana panels, all three scrape
-  targets healthy, one-week retention setting and scheduled reloads.
+- Verified: five-second collection/scraping, Grafana panels, configured scrape
+  jobs, one-week retention setting and scheduled reloads. Current target status
+  can change; check Prometheus before relying on it.
 - Verified: deployment, supervisor child recovery and scheduler non-overlap,
   config reload and timeout handling.
 - Verified on the phone: killed the supervised SSH listener and reconnected

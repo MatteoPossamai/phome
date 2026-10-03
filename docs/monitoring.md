@@ -133,6 +133,11 @@ environment, not a container or a second machine.
 - `config/grafana/provisioning/`: data source and dashboard provisioning.
 - `config/grafana/dashboards/phone.json`: dashboard source of truth.
 
+For a replacement phone, update the `posserver` target in `prometheus.yml` if
+posserver is installed there. Its address is an installed-device example, not a
+portable default. Charging thresholds are in `config/charging.json`; scheduled
+intervals/timeouts are in `config/scheduler.json`.
+
 Unused built-in Grafana data source plugins are disabled to reduce background
 processes. The Go services use two workers and disable asynchronous preemption
 for PRoot compatibility.
@@ -145,12 +150,13 @@ cutoff. Grafana's database holds settings/dashboards, not a second metrics archi
 ## Operations
 
 Verified on the current realme: dashboard page and provisioned data source load,
-live battery/RAM/storage/CPU frequency queries succeed, both scrape targets are
-healthy, and samples continue after a service restart. Prometheus reports `1w`
-retention. Five-second scrape intervals and successful scheduled Prometheus and
-Grafana provisioning reloads are verified on the phone. Local tests cover child
-restart/shutdown, scheduler config reload, non-overlap and timeout cancellation. Monitoring
-startup after a physical phone reboot still needs a separate test after unlocking.
+live battery/RAM/storage/CPU frequency queries succeed, and samples continue
+after a service restart. The latest recorded check had all five configured
+scrape jobs healthy. Prometheus reports `1w` retention. Five-second scrape
+intervals and scheduled Prometheus/Grafana reloads are verified on the phone.
+Local tests cover child restart/shutdown and scheduler reload, overlap and
+timeout handling. Monitoring startup after a physical phone reboot still needs
+a separate test after unlocking.
 
 **Phone / Termux:**
 
@@ -224,7 +230,15 @@ settings leave the last valid schedule running and record an error. Logs are in
 Commands share the phone user's permissions; keep credentials out of commands
 and command output.
 
-Default jobs run every 60 seconds:
+The tracked schedule has five jobs. Edit `every_seconds` and
+`timeout_seconds` in `config/scheduler.json`; both values are seconds. Keep each
+timeout shorter than its interval so the next run is not delayed.
+
+- Charging control: every 30 seconds, with a 25-second timeout.
+- SSH recovery: every 30 seconds, with a 10-second timeout.
+- Wake-lock check: every 60 seconds, with a 15-second timeout.
+
+The two reload jobs run every 60 seconds:
 
 - Prometheus: POST `http://127.0.0.1:9090/-/reload`. The lifecycle API is enabled
   only on its localhost listener. Invalid Prometheus settings fail the job while
@@ -237,8 +251,8 @@ Default jobs run every 60 seconds:
   polling, rather than repeated admin reloads. If you change the
   admin password in Grafana, update this file privately too.
 
-A third job runs `sv up "$PREFIX/var/service/sshd"` every 30 seconds to ensure
-SSH is running. Its runit service independently restarts crashes immediately.
+SSH recovery runs `sv up "$PREFIX/var/service/sshd"` every 30 seconds. Its
+runit service independently restarts crashes immediately.
 For planned SSH downtime, remove that job first; otherwise the scheduler will
 bring it back. The scheduler cannot recover a stopped Termux app or failed VPN.
 

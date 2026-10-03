@@ -99,8 +99,8 @@ Public verification on 2026-10-02: Cloudflare DNS returned public relay IPv4
 addresses. Requests forced to two public relay addresses (bypassing local
 MagicDNS and HTTP proxies, retaining normal TLS certificate verification)
 returned Grafana health OK. Dashboard HTML/API, CSS and JavaScript loaded,
-live Prometheus queries showed all three targets up, and anonymous admin access
-returned 403. This verifies real public relay access, not only tailnet access.
+live Prometheus queries showed the configured targets up, and anonymous admin
+access returned 403. This verifies public relay access, not only tailnet access.
 
 For long-term hosting, account owner: in the Tailscale admin console Machines
 page, select `phome-public` and disable key expiry. This node's current key
