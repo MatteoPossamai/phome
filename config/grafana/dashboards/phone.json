@@ -956,7 +956,7 @@
     },
     {
       "id": 19,
-      "title": "Monitoring RAM by service",
+      "title": "Process memory by service",
       "type": "timeseries",
       "gridPos": {
         "x": 12,
@@ -973,6 +973,12 @@
           "expr": "phome_process_memory_pss_bytes",
           "refId": "A",
           "legendFormat": "{{service}}",
+          "instant": false
+        },
+        {
+          "expr": "process_resident_memory_bytes{job=\"posserver\"}",
+          "refId": "B",
+          "legendFormat": "posserver RSS",
           "instant": false
         }
       ],
@@ -1012,7 +1018,7 @@
         "colorMode": "value",
         "graphMode": "area"
       },
-      "description": "PSS from Android /proc: shared pages apportioned between processes; wrappers and Grafana plugins shown separately. Current resident memory, not peak requirements."
+      "description": "Phone monitoring processes use Android PSS; posserver uses process RSS. Both are current memory in bytes, but the methods differ and these series should not be added together. They are not peak measurements."
     },
     {
       "id": 20,

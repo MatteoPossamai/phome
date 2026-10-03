@@ -316,11 +316,6 @@
           "refId": "C",
           "expr": "posserver_backup_revision{job=\"posserver\",provider=\"dropbox\"}",
           "legendFormat": "Dropbox"
-        },
-        {
-          "refId": "D",
-          "expr": "posserver_backup_revision{job=\"posserver\",provider=\"drive\"}",
-          "legendFormat": "Drive"
         }
       ],
       "fieldConfig": {

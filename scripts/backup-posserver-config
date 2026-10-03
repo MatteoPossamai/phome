@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+DEST="$ROOT/config/posserver-runtime.json.vault"
+HOST="${1:-phone}"
+
+if [[ ! "$HOST" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo 'Usage: scripts/backup-posserver-config [SSH-host]' >&2
+    exit 2
+fi
+if ! command -v ansible-vault >/dev/null 2>&1; then
+    echo 'ansible-vault is required (install ansible-core on this laptop).' >&2
+    exit 1
+fi
+
+temporary="$(mktemp "$ROOT/config/.posserver-runtime.XXXXXXXX.vault")"
+trap 'rm -f -- "$temporary"' EXIT
+chmod 600 "$temporary"
+
+echo 'Encrypting the phone config into phome. The Vault password is never saved here.'
+ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" \
+    'set -eu; : "${PREFIX:?Native Termux required}"; test -f "$PREFIX/data/posserver/config.json"; cat "$PREFIX/data/posserver/config.json"' \
+    | ansible-vault encrypt --ask-vault-pass --output "$temporary" /dev/stdin
+
+if ! head -n 1 "$temporary" | grep -q '^\$ANSIBLE_VAULT;'; then
+    echo 'Encryption did not produce an Ansible Vault file; existing backup was kept.' >&2
+    exit 1
+fi
+mv -f -- "$temporary" "$DEST"
+trap - EXIT
+chmod 600 "$DEST"
+echo "Encrypted config saved: $DEST"
+echo 'Commit this encrypted file to private phome backup/version control only if you want it off this laptop.'

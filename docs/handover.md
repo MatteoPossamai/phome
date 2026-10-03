@@ -549,6 +549,14 @@ symlink and build cache. Native Termux runit supervises `posserver`; bind is pri
 The CSV was imported afterward (documented in posserver's handover). No public Funnel route
 was added for posserver.
 
+Dropbox is configured on posserver. Its database snapshots are stored remotely, while the
+Dropbox refresh credential and runtime settings remain on the phone. Added
+`scripts/backup-posserver-config` to stream the phone config directly into Ansible Vault at
+`config/posserver-runtime.json.vault`; the Vault password is operator-managed and is not stored
+in this repository. This laptop currently has no `ansible-vault` executable, so the backup
+command has not yet been run and no encrypted copy exists yet. See
+`docs/posserver-backup.md` for the one-command backup and replacement-phone recovery steps.
+
 Verified private UI/API/health/metrics reachability, stop/start/restart, repeat deployment,
 binary rollback and reverse rollback. Native process CPU/RSS metrics are available. Existing
 phome-monitoring and sshd PIDs remained unchanged during deployment. Android vendor-kill, boot and
@@ -593,3 +601,49 @@ the `posserver` job. Deployed the dashboard JSON atomically to the existing Graf
 directory. The public Grafana API now returns the updated panel query
 `up{job=~"phone|prometheus|grafana|posserver"}` and no snapshot-age query. The posserver target
 is currently up in Prometheus.
+
+## posserver Dropbox-only deployment — 2026-10-03
+
+Removed Google Drive backup support from the posserver binary and deleted its duplicate
+Prometheus, Grafana dashboard and scheduler config from the posserver repository. The existing
+phome dashboard's Drive revision query was also removed. The phone's old runtime config had an
+unconfigured `backup.drive` key, which the new strict config rejects; removed that key while
+preserving the active Dropbox settings and mode 600. The accidental temporary config copy was
+removed after verification.
+
+Rebuilt and deployed posserver with `../posserver/scripts/phone deploy --bind
+100.108.243.40:8080`; deployed phome's dashboard/config with `python scripts/deploy-monitoring`.
+The first deployment failed on the stale config key and automatically restored the prior binary;
+the corrected deployment succeeded. App health is `ok`, Dropbox revision 7 equals local revision
+7 with zero pending entries, and the service is runit supervised. Public Funnel `/healthz` also
+returned `ok`. Prometheus reports `up{job="posserver"}=1` and
+`process_resident_memory_bytes{job="posserver"}=11603968` (about 11.1 MiB at check time).
+Grafana API confirms 16 panels, including the RSS panel, with no Drive query. Monitoring was
+restarted by its routine deployment; no phone reboot occurred.
+
+## posserver RSS on phone health dashboard — 2026-10-03
+
+Added `process_resident_memory_bytes{job="posserver"}` to the main `phome-phone` dashboard's
+process-memory panel, alongside Android PSS series. The panel identifies posserver as RSS and
+notes that RSS/PSS methods differ, so the values should not be summed. Installed the dashboard
+JSON atomically under `~/phome/config/grafana/dashboards/phone.json`. Grafana's dashboard file
+poll loaded the new query without a Grafana restart. Grafana API reports the updated panel, and
+Prometheus returns a current posserver RSS sample (~10.9 MiB at verification). Refresh the browser
+page to see the updated panel.
+
+## posserver Monzo import update — 2026-10-03
+
+Deployed the Matteo-only manual Monzo import flow with
+`../posserver/scripts/phone deploy --bind 100.108.243.40:8080`. The native release built and the
+existing runit service returned to ready. `/healthz` reports `ok`; Dropbox is still at revision 7
+with zero pending writes. The posserver Prometheus target is up and exposes
+`process_resident_memory_bytes`. The `phome-phone` dashboard's process-memory panel still includes
+the posserver RSS query. Grafana's health API and Prometheus query both succeeded; no Grafana or
+monitoring restart was needed. At deployment time, no real Monzo request had yet been made.
+
+After Matteo tried the import, his Monzo account is now linked and Dropbox revision 8 is current
+with no pending writes. The server cannot safely replace that saved account binding automatically.
+The follow-up release now ignores account IDs that do not start with `acc_` and automatically
+selects the sole matching account during first-time discovery. Existing linked accounts and their
+transaction identities were left as stored. The imported live data still needs comparison with
+the Monzo app.

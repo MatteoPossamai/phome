@@ -21,6 +21,7 @@ current installed state, Grafana incident/mitigation, tested results and next st
 - [Charging](docs/charging.md): phone-controlled WiZ charger, with 40–80% thresholds and recovery limits.
 - [Public HTTPS](docs/funnel.md): phone-hosted Tailscale Funnel setup and current verification status.
 - [Telegram alerts](docs/alerting.md): Prometheus outage rules, Alertmanager and private bot setup.
+- [posserver recovery copy](docs/posserver-backup.md): encrypted off-phone copy of posserver runtime config and restore steps.
 - [Repository instructions](AGENTS.md): scope and conventions for future work.
 - [Android access](docs/android-access.md): ADB pairing, Termux permissions and system memory diagnostics.
 
